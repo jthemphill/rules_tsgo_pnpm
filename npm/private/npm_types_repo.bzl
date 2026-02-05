@@ -7,19 +7,29 @@ no virtual store, no lifecycle hooks, no node_modules symlink tree.
 For @types/* packages, we organize them in a typeRoots-compatible layout:
   types/<pkg_name>/  (e.g., types/node/ for @types/node)
 so that TypeScript's typeRoots resolution finds them.
+
+Supports both pnpm-lock.yaml and bun.lock as lockfile inputs.
 """
 
-load(":pnpm_lock_parser.bzl", "npm_tarball_url", "parse_pnpm_lock")
+load(":bun_lock_parser.bzl", "parse_bun_lock")
+load(":npm_utils.bzl", "npm_tarball_url")
+load(":pnpm_lock_parser.bzl", "parse_pnpm_lock")
 
 def _npm_types_impl(rctx):
-    """Downloads npm packages from a pnpm lockfile and exposes .d.ts files."""
+    """Downloads npm packages from a lockfile and exposes .d.ts files."""
 
     # Read and parse the lockfile
-    lockfile_content = rctx.read(rctx.attr.pnpm_lock)
-    packages = parse_pnpm_lock(lockfile_content)
+    lockfile_content = rctx.read(rctx.attr.lockfile)
+
+    # Auto-detect format: bun.lock is JSON (starts with {), pnpm-lock.yaml is YAML
+    stripped = lockfile_content.lstrip()
+    if stripped.startswith("{") or stripped.startswith("//"):
+        packages = parse_bun_lock(lockfile_content)
+    else:
+        packages = parse_pnpm_lock(lockfile_content)
 
     if not packages:
-        fail("No packages found in pnpm-lock.yaml. Is the file empty or malformed?")
+        fail("No packages found in lockfile. Is the file empty or malformed?")
 
     # Download each package and extract it
     pkg_targets = []
@@ -78,7 +88,7 @@ def _npm_types_impl(rctx):
 
     # Generate the BUILD file
     build_lines = [
-        'load("@rules_pnpm_tsgo//tsgo:defs.bzl", "ts_types")',
+        'load("@rules_tsgo//tsgo:defs.bzl", "ts_types")',
         "",
     ]
 
@@ -116,11 +126,11 @@ def _npm_types_impl(rctx):
 npm_types = repository_rule(
     implementation = _npm_types_impl,
     attrs = {
-        "pnpm_lock": attr.label(
+        "lockfile": attr.label(
             mandatory = True,
             allow_single_file = True,
-            doc = "The pnpm-lock.yaml file.",
+            doc = "The lockfile (pnpm-lock.yaml or bun.lock).",
         ),
     },
-    doc = "Downloads npm packages from a pnpm lockfile and exposes .d.ts files as ts_types targets.",
+    doc = "Downloads npm packages from a lockfile and exposes .d.ts files as ts_types targets.",
 )

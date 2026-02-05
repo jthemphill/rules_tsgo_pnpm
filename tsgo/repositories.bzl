@@ -114,7 +114,7 @@ toolchain(
         "@platforms//cpu:{cpu}",
     ],
     toolchain = ":{impl_name}",
-    toolchain_type = "@rules_pnpm_tsgo//tsgo:toolchain_type",
+    toolchain_type = "@rules_tsgo//tsgo:toolchain_type",
 )
 """.format(
             impl_name = impl_name,
@@ -129,7 +129,7 @@ toolchain(
         toolchain_targets.append('":{toolchain_name}"'.format(toolchain_name = toolchain_name))
 
     build_content = """
-load("@rules_pnpm_tsgo//tsgo:toolchain.bzl", "tsgo_toolchain")
+load("@rules_tsgo//tsgo:toolchain.bzl", "tsgo_toolchain")
 
 package(default_visibility = ["//visibility:public"])
 {defs}

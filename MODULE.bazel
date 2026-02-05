@@ -1,7 +1,7 @@
-"""Bazel rules for TypeScript using tsgo (the Go-based TypeScript compiler) and pnpm."""
+"""Bazel rules for TypeScript using tsgo (the Go-based TypeScript compiler)."""
 
 module(
-    name = "rules_pnpm_tsgo",
+    name = "rules_tsgo",
     version = "0.0.1",
 )
 
@@ -14,6 +14,10 @@ use_repo(tsgo, "tsgo_toolchains")
 
 register_toolchains("@tsgo_toolchains//:all")
 
-pnpm = use_extension("//pnpm:extensions.bzl", "pnpm")
-pnpm.lock(pnpm_lock = "//examples/with_types:pnpm-lock.yaml")
-use_repo(pnpm, "npm")
+npm = use_extension("//npm:extensions.bzl", "npm")
+npm.lock(lockfile = "//examples/with_types:pnpm-lock.yaml")
+npm.lock(
+    name = "bun_npm",
+    lockfile = "//examples/with_bun:bun.lock",
+)
+use_repo(npm, "npm", "bun_npm")

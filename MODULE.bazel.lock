@@ -188,16 +188,22 @@
   },
   "selectedYankedVersions": {},
   "moduleExtensions": {
-    "//pnpm:extensions.bzl%pnpm": {
+    "//npm:extensions.bzl%npm": {
       "general": {
-        "bzlTransitiveDigest": "q4fiLz/BIKS4yvkw73H0z4My2pTb/xYrB8UZRODsN1Q=",
-        "usagesDigest": "6gbYVAMKGwtkIFaEVyMPquzO2SqXM4WqhtQDHYPbM20=",
+        "bzlTransitiveDigest": "AEZmqISYIHnzrYlYCOhcYR3AJU+XgNEK38VpXRyvbTg=",
+        "usagesDigest": "z9AGSuJnOrrAh1WVmX18Lyu0byGnNV/PJMl8FOHOgX0=",
         "recordedInputs": [],
         "generatedRepoSpecs": {
           "npm": {
-            "repoRuleId": "@@//pnpm/private:npm_types_repo.bzl%npm_types",
+            "repoRuleId": "@@//npm/private:npm_types_repo.bzl%npm_types",
             "attributes": {
-              "pnpm_lock": "@@//examples/with_types:pnpm-lock.yaml"
+              "lockfile": "@@//examples/with_types:pnpm-lock.yaml"
+            }
+          },
+          "bun_npm": {
+            "repoRuleId": "@@//npm/private:npm_types_repo.bzl%npm_types",
+            "attributes": {
+              "lockfile": "@@//examples/with_bun:bun.lock"
             }
           }
         }
@@ -205,8 +211,8 @@
     },
     "//tsgo:extensions.bzl%tsgo": {
       "general": {
-        "bzlTransitiveDigest": "IGvh9WFdiHsReeq4HrOhhrA0RN84Zeze0TGyQGfLTn8=",
-        "usagesDigest": "ogmuASe1pgcmgtGuNFemX0N14V9le8nCe3Tsw0n/bzY=",
+        "bzlTransitiveDigest": "sFiwO2LJryTezOLetjmb91igM7XVYu7Xf70ZJZ744yo=",
+        "usagesDigest": "GbR+LjOxklWUsJo75YOIMSPvMPyzgjsB0P5BcNX0Bqk=",
         "recordedInputs": [],
         "generatedRepoSpecs": {
           "tsgo_tools_darwin_arm64": {

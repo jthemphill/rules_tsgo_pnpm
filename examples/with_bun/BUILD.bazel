@@ -1,0 +1,7 @@
+load("//tsgo:defs.bzl", "ts_project")
+
+ts_project(
+    name = "with_bun",
+    srcs = ["server.ts"],
+    deps = ["@bun_npm//:_at_types_node"],
+)

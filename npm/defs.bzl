@@ -1,0 +1,5 @@
+"""Public API for npm integration."""
+
+load("//npm/private:npm_types_repo.bzl", _npm_types = "npm_types")
+
+npm_types = _npm_types

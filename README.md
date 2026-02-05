@@ -1,6 +1,8 @@
-# rules_pnpm_tsgo
+# rules_tsgo
 
-Bazel rules for TypeScript using [tsgo](https://github.com/microsoft/typescript-go) (the Go-based TypeScript 7 compiler) and pnpm.
+Bazel rules for TypeScript using [tsgo](https://github.com/microsoft/typescript-go) (the Go-based TypeScript 7 compiler).
+
+Supports npm type dependencies from **pnpm** (`pnpm-lock.yaml`) and **bun** (`bun.lock`) lockfiles.
 
 Designed as a drop-in replacement for [rules_ts](https://github.com/aspect-build/rules_ts), following architectural patterns from [rules_rust](https://github.com/bazelbuild/rules_rust).
 
@@ -9,13 +11,39 @@ Designed as a drop-in replacement for [rules_ts](https://github.com/aspect-build
 Add to your `MODULE.bazel`:
 
 ```starlark
-bazel_dep(name = "rules_pnpm_tsgo", version = "0.0.1")
+bazel_dep(name = "rules_tsgo", version = "0.0.1")
 
-tsgo = use_extension("@rules_pnpm_tsgo//tsgo:extensions.bzl", "tsgo")
+tsgo = use_extension("@rules_tsgo//tsgo:extensions.bzl", "tsgo")
 tsgo.toolchain(version = "7.0.0-dev.20260204.1")
 use_repo(tsgo, "tsgo_toolchains")
 
 register_toolchains("@tsgo_toolchains//:all")
+```
+
+### npm types from pnpm
+
+```starlark
+npm = use_extension("@rules_tsgo//npm:extensions.bzl", "npm")
+npm.lock(lockfile = "//:pnpm-lock.yaml")
+use_repo(npm, "npm")
+```
+
+### npm types from bun
+
+```starlark
+npm = use_extension("@rules_tsgo//npm:extensions.bzl", "npm")
+npm.lock(lockfile = "//:bun.lock")
+use_repo(npm, "npm")
+```
+
+Then depend on types in your `BUILD.bazel`:
+
+```starlark
+ts_project(
+    name = "server",
+    srcs = ["server.ts"],
+    deps = ["@npm//:@types/node"],
+)
 ```
 
 ## Rules
@@ -25,7 +53,7 @@ register_toolchains("@tsgo_toolchains//:all")
 Compiles TypeScript source files using tsgo.
 
 ```starlark
-load("@rules_pnpm_tsgo//tsgo:defs.bzl", "ts_project")
+load("@rules_tsgo//tsgo:defs.bzl", "ts_project")
 
 ts_project(
     name = "my_lib",
@@ -49,7 +77,7 @@ ts_project(
 Wraps existing `.d.ts` files so they can be used as `deps` of `ts_project`.
 
 ```starlark
-load("@rules_pnpm_tsgo//tsgo:defs.bzl", "ts_types")
+load("@rules_tsgo//tsgo:defs.bzl", "ts_types")
 
 ts_types(
     name = "shared_types",
@@ -77,6 +105,8 @@ Building will generate a `tsconfig.json` in the build sandbox that looks like th
 
 - [`examples/basic`](examples/basic) — single-package compilation
 - [`examples/monorepo`](examples/monorepo) — multi-package with `ts_types` → `ts_project` → `ts_project` dependency chain
+- [`examples/with_types`](examples/with_types) — npm `@types/node` via pnpm lockfile
+- [`examples/with_bun`](examples/with_bun) — npm `@types/node` via bun lockfile
 
 ```
 bazel build //examples/...
@@ -84,11 +114,11 @@ bazel build //examples/...
 
 ## Status
 
-This is an early v1. Working:
-- Toolchain download for 6 platforms (macOS/Linux/Windows × x64/arm64)
+Working:
+- Toolchain download for 6 platforms (macOS/Linux/Windows x x64/arm64)
 - Single and multi-package compilation with `.d.ts` dependency flow
 - Type checking (tsgo exits non-zero on type errors, failing the build)
+- npm `@types/*` package fetching from pnpm and bun lockfiles
 
 Not yet implemented:
-- npm package fetching from `pnpm-lock.yaml` (needed for `@types/*` packages)
 - Transpiler split (SWC/esbuild for JS emit, tsgo for type-checking)
