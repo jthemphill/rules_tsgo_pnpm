@@ -1,0 +1,7 @@
+load("//tsgo:defs.bzl", "ts_project")
+
+ts_project(
+    name = "app",
+    srcs = ["main.ts"],
+    deps = ["//examples/monorepo/lib-a"],
+)

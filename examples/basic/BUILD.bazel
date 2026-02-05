@@ -1,0 +1,6 @@
+load("//tsgo:defs.bzl", "ts_project")
+
+ts_project(
+    name = "basic",
+    srcs = ["greeting.ts"],
+)

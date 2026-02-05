@@ -1,0 +1,8 @@
+load("//tsgo:defs.bzl", "ts_project")
+
+ts_project(
+    name = "lib-a",
+    srcs = ["greeting.ts"],
+    deps = ["//examples/monorepo/types:shared_types"],
+    visibility = ["//examples/monorepo:__subpackages__"],
+)

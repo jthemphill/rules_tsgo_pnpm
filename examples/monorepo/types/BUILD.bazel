@@ -1,0 +1,7 @@
+load("//tsgo:defs.bzl", "ts_types")
+
+ts_types(
+    name = "shared_types",
+    srcs = ["shared.d.ts"],
+    visibility = ["//examples/monorepo:__subpackages__"],
+)
