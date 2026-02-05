@@ -5,6 +5,7 @@ module(
     version = "0.0.1",
 )
 
+bazel_dep(name = "aspect_rules_js", version = "2.9.2")
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
 bazel_dep(name = "platforms", version = "1.0.0")
 
@@ -14,10 +15,19 @@ use_repo(tsgo, "tsgo_toolchains")
 
 register_toolchains("@tsgo_toolchains//:all")
 
-npm = use_extension("//npm:extensions.bzl", "npm")
-npm.lock(lockfile = "//examples/with_types:pnpm-lock.yaml")
-npm.lock(
+# rules_js handles pnpm-lock.yaml
+js_npm = use_extension("@aspect_rules_js//npm:extensions.bzl", "npm")
+js_npm.npm_translate_lock(
+    name = "npm",
+    pnpm_lock = "//examples/with_types:pnpm-lock.yaml",
+    root_package = "examples/with_types",
+)
+use_repo(js_npm, "npm")
+
+# Built-in bun.lock handling (rules_js doesn't support bun)
+bun = use_extension("//npm:extensions.bzl", "npm")
+bun.lock(
     name = "bun_npm",
     lockfile = "//examples/with_bun:bun.lock",
 )
-use_repo(npm, "npm", "bun_npm")
+use_repo(bun, "bun_npm")

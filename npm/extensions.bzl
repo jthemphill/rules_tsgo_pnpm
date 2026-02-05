@@ -1,4 +1,8 @@
-"""Bzlmod extension for npm package fetching from lockfiles."""
+"""Bzlmod extension for npm package fetching from bun.lock files.
+
+For pnpm-lock.yaml, use aspect_rules_js's npm extension instead:
+  js_npm = use_extension("@aspect_rules_js//npm:extensions.bzl", "npm")
+"""
 
 load("//npm/private:npm_types_repo.bzl", "npm_types")
 

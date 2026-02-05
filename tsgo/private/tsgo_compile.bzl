@@ -93,16 +93,20 @@ def tsgo_compile_action(ctx, toolchain_info, srcs, deps, outputs):
     imports via rootDirs, following the rules_rust pattern of working directly
     with the sandbox filesystem.
 
+    Deps can provide TsInfo (from ts_project/ts_types) or just DefaultInfo
+    (from rules_js npm targets). For DefaultInfo deps, .d.ts files are collected
+    and typeRoots are inferred from node_modules/@types/ paths.
+
     Args:
         ctx: The rule context.
         toolchain_info: TsgoToolchainInfo provider.
         srcs: List of source .ts files.
-        deps: List of targets providing TsInfo.
+        deps: List of targets providing TsInfo or DefaultInfo.
         outputs: Struct from _compute_outputs.
     """
     tsgo_bin = toolchain_info.tsgo
 
-    # Collect transitive declarations from deps (hierarchical depset, rules_rust pattern)
+    # Collect transitive declarations from TsInfo deps (hierarchical depset, rules_rust pattern)
     transitive_dts = depset(transitive = [
         dep[TsInfo].transitive_declarations
         for dep in deps
@@ -150,6 +154,28 @@ def tsgo_compile_action(ctx, toolchain_info, srcs, deps, outputs):
                     if idx >= 0:
                         type_roots.append(sample_path[:idx + 1 + len(tr)])
 
+    # Collect files from non-TsInfo deps (e.g., rules_js npm link targets).
+    # These provide DefaultInfo with package files (often TreeArtifacts/directories)
+    # but no TsInfo. We add all files as inputs and compute typeRoots from paths
+    # containing node_modules/@types/.
+    npm_files = []
+    npm_type_roots = {}
+    for dep in deps:
+        if TsInfo in dep:
+            continue
+        if DefaultInfo in dep:
+            for f in dep[DefaultInfo].files.to_list():
+                npm_files.append(f)
+                # Check for @types packages in the path. rules_js uses TreeArtifacts
+                # so f.path is a directory like ".../node_modules/@types/node".
+                # We want the parent: ".../node_modules/@types"
+                p = f.path
+                seg = "/node_modules/@types/"
+                idx = p.find(seg)
+                if idx >= 0:
+                    npm_type_roots[p[:idx + len(seg) - 1]] = True
+    type_roots.extend(npm_type_roots.keys())
+
     # Build the tsconfig content. Paths are relative to execroot.
     opts = struct(
         declaration = ctx.attr.declaration,
@@ -165,9 +191,9 @@ def tsgo_compile_action(ctx, toolchain_info, srcs, deps, outputs):
         ctx.label.name,
     )
 
-    # All inputs: sources + transitive declarations
+    # All inputs: sources + transitive declarations + npm dep files
     inputs = depset(
-        direct = srcs,
+        direct = srcs + npm_files,
         transitive = [transitive_dts],
     )
 
@@ -218,8 +244,19 @@ def ts_project_impl(ctx):
 
     # Build TsInfo provider
     declarations = depset(outputs.dts)
+
+    # Include non-TsInfo dep files (e.g., from rules_js npm targets) in
+    # transitive_declarations so downstream targets can see them.
+    # These may be TreeArtifacts (directories) containing .d.ts files.
+    npm_dep_files = []
+    for dep in deps:
+        if TsInfo in dep:
+            continue
+        if DefaultInfo in dep:
+            npm_dep_files.extend(dep[DefaultInfo].files.to_list())
+
     transitive_declarations = depset(
-        outputs.dts,
+        outputs.dts + npm_dep_files,
         transitive = [
             dep[TsInfo].transitive_declarations
             for dep in deps

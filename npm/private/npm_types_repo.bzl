@@ -8,25 +8,19 @@ For @types/* packages, we organize them in a typeRoots-compatible layout:
   types/<pkg_name>/  (e.g., types/node/ for @types/node)
 so that TypeScript's typeRoots resolution finds them.
 
-Supports both pnpm-lock.yaml and bun.lock as lockfile inputs.
+This rule supports bun.lock only. For pnpm-lock.yaml, use aspect_rules_js
+(npm_translate_lock) which provides full pnpm lockfile support.
 """
 
 load(":bun_lock_parser.bzl", "parse_bun_lock")
 load(":npm_utils.bzl", "npm_tarball_url")
-load(":pnpm_lock_parser.bzl", "parse_pnpm_lock")
 
 def _npm_types_impl(rctx):
-    """Downloads npm packages from a lockfile and exposes .d.ts files."""
+    """Downloads npm packages from a bun.lock and exposes .d.ts files."""
 
     # Read and parse the lockfile
     lockfile_content = rctx.read(rctx.attr.lockfile)
-
-    # Auto-detect format: bun.lock is JSON (starts with {), pnpm-lock.yaml is YAML
-    stripped = lockfile_content.lstrip()
-    if stripped.startswith("{") or stripped.startswith("//"):
-        packages = parse_bun_lock(lockfile_content)
-    else:
-        packages = parse_pnpm_lock(lockfile_content)
+    packages = parse_bun_lock(lockfile_content)
 
     if not packages:
         fail("No packages found in lockfile. Is the file empty or malformed?")
@@ -129,8 +123,8 @@ npm_types = repository_rule(
         "lockfile": attr.label(
             mandatory = True,
             allow_single_file = True,
-            doc = "The lockfile (pnpm-lock.yaml or bun.lock).",
+            doc = "A bun.lock file.",
         ),
     },
-    doc = "Downloads npm packages from a lockfile and exposes .d.ts files as ts_types targets.",
+    doc = "Downloads npm packages from a bun.lock and exposes .d.ts files as ts_types targets.",
 )
