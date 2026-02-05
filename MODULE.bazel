@@ -5,11 +5,15 @@ module(
     version = "0.0.1",
 )
 
-bazel_dep(name = "bazel_skylib", version = "1.7.1")
-bazel_dep(name = "platforms", version = "0.0.10")
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
+bazel_dep(name = "platforms", version = "1.0.0")
 
 tsgo = use_extension("//tsgo:extensions.bzl", "tsgo")
 tsgo.toolchain(version = "7.0.0-dev.20260204.1")
 use_repo(tsgo, "tsgo_toolchains")
 
 register_toolchains("@tsgo_toolchains//:all")
+
+pnpm = use_extension("//pnpm:extensions.bzl", "pnpm")
+pnpm.lock(pnpm_lock = "//examples/with_types:pnpm-lock.yaml")
+use_repo(pnpm, "npm")

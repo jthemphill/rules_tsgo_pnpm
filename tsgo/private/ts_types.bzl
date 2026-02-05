@@ -18,6 +18,12 @@ def _ts_types_impl(ctx):
         ],
     )
 
+    # Collect type_roots from this target and deps
+    type_roots = list(ctx.attr.type_roots)
+    for dep in ctx.attr.deps:
+        if TsInfo in dep:
+            type_roots.extend(dep[TsInfo].type_roots)
+
     return [
         DefaultInfo(files = declarations),
         TsInfo(
@@ -27,6 +33,7 @@ def _ts_types_impl(ctx):
             source_maps = depset(),
             declaration_maps = depset(),
             srcs = depset(),
+            type_roots = type_roots,
         ),
     ]
 
@@ -39,6 +46,10 @@ ts_types = rule(
         ),
         "deps": attr.label_list(
             doc = "Other ts_types or ts_project targets this depends on.",
+        ),
+        "type_roots": attr.string_list(
+            default = [],
+            doc = "Paths to include as typeRoots in tsconfig (for @types packages).",
         ),
     },
     doc = "Wraps .d.ts files into a TsInfo provider for use as ts_project deps.",

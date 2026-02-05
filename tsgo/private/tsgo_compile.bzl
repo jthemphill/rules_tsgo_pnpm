@@ -36,7 +36,7 @@ def _compute_outputs(ctx, srcs):
         dts_maps = dts_map_outputs,
     )
 
-def _build_tsconfig_json(srcs, out_dir, root_dir, bin_dir, opts):
+def _build_tsconfig_json(srcs, out_dir, root_dir, bin_dir, opts, type_roots = []):
     """Build a tsconfig.json content string.
 
     All paths are relative to the execroot (the CWD at execution time).
@@ -60,6 +60,9 @@ def _build_tsconfig_json(srcs, out_dir, root_dir, bin_dir, opts):
     compiler_options["module"] = "es2022"
     compiler_options["target"] = "es2022"
     compiler_options["moduleResolution"] = "bundler"
+
+    if type_roots:
+        compiler_options["typeRoots"] = type_roots
 
     if opts.declaration:
         compiler_options["declaration"] = True
@@ -127,6 +130,26 @@ def tsgo_compile_action(ctx, toolchain_info, srcs, deps, outputs):
     # bin_dir is e.g. "bazel-out/darwin_arm64-fastbuild/bin"
     bin_dir = ctx.bin_dir.path
 
+    # Collect typeRoots from deps' TsInfo providers.
+    # type_roots in TsInfo are repo-relative (e.g., "types"), but we need
+    # execroot-relative paths. For external repos, the .d.ts files live at
+    # e.g. "external/_main~pnpm~npm/types/node/index.d.ts", so we need to
+    # find the actual root path from the dep's declaration files.
+    type_roots = []
+    for dep in deps:
+        if TsInfo in dep and dep[TsInfo].type_roots:
+            # Get the root path for this dep's files by inspecting a .d.ts file
+            dts_list = dep[TsInfo].declarations.to_list()
+            if dts_list:
+                # e.g. "external/_main~pnpm~npm/types/node/index.d.ts"
+                # with type_root = "types", we want "external/_main~pnpm~npm/types"
+                sample_path = dts_list[0].path
+                for tr in dep[TsInfo].type_roots:
+                    # Find the type_root directory within the sample path
+                    idx = sample_path.find("/" + tr + "/")
+                    if idx >= 0:
+                        type_roots.append(sample_path[:idx + 1 + len(tr)])
+
     # Build the tsconfig content. Paths are relative to execroot.
     opts = struct(
         declaration = ctx.attr.declaration,
@@ -134,7 +157,7 @@ def tsgo_compile_action(ctx, toolchain_info, srcs, deps, outputs):
         source_map = ctx.attr.source_map,
         no_emit = not ctx.attr.emit,
     )
-    tsconfig_content = _build_tsconfig_json(srcs, out_dir, root_dir, bin_dir, opts)
+    tsconfig_content = _build_tsconfig_json(srcs, out_dir, root_dir, bin_dir, opts, type_roots)
 
     # Use a unique tsconfig name to avoid collisions between targets
     tsconfig_name = "_tsgo_{}_{}.json".format(
@@ -211,6 +234,7 @@ def ts_project_impl(ctx):
         source_maps = depset(outputs.maps),
         declaration_maps = depset(outputs.dts_maps),
         srcs = depset(srcs),
+        type_roots = [],
     )
 
     # DefaultInfo: expose JS outputs (or .d.ts if no emit)

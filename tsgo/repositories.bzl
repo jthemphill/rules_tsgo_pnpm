@@ -59,6 +59,7 @@ def _tsgo_tools_repo_impl(rctx):
     binary_name = "tsgo.exe" if is_windows else "tsgo"
 
     # Find the binary - it may be at the top level or under lib/
+    glob_pattern = "**/tsgo.exe" if is_windows else "**/tsgo"
     rctx.file("BUILD.bazel", content = """
 load("@bazel_skylib//rules:native_binary.bzl", "native_binary")
 
@@ -66,7 +67,7 @@ package(default_visibility = ["//visibility:public"])
 
 filegroup(
     name = "tsgo_bin",
-    srcs = glob(["**/tsgo", "**/tsgo.exe"]),
+    srcs = glob(["{glob_pattern}"]),
 )
 
 native_binary(
@@ -74,7 +75,7 @@ native_binary(
     src = ":tsgo_bin",
     out = "{binary_name}",
 )
-""".format(binary_name = binary_name))
+""".format(glob_pattern = glob_pattern, binary_name = binary_name))
 
 tsgo_tools_repo = repository_rule(
     implementation = _tsgo_tools_repo_impl,

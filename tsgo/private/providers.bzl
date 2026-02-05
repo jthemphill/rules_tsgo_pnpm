@@ -9,5 +9,6 @@ TsInfo = provider(
         "source_maps": "depset of .js.map files",
         "declaration_maps": "depset of .d.ts.map files",
         "srcs": "depset of source .ts files for this target",
+        "type_roots": "list of paths to include as typeRoots in tsconfig (for @types packages)",
     },
 )
