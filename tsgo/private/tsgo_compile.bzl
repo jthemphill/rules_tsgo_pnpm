@@ -600,10 +600,24 @@ def ts_project_impl(ctx):
         type_roots = [],
     )
 
-    # DefaultInfo: expose JS outputs (or .d.ts if no emit)
+    data_files = ctx.files.data
+    runtime_data_files = []
+    for data_file in data_files:
+        # rules_js cannot copy source files from a different package via JsInfo
+        # direct sources. Keep same-package source assets (like local JSON files),
+        # and allow generated files (already in bazel-out).
+        if data_file.is_source and data_file.owner.package != ctx.label.package:
+            continue
+        runtime_data_files.append(data_file)
+
     default_outputs = outputs.js if outputs.js else outputs.dts
+
+    # DefaultInfo: expose JS outputs (or .d.ts if no emit). Runtime data files
+    # are carried in default runfiles so downstream js_binary/js_test targets
+    # pick them up without treating them as cross-package source files.
     default_info = DefaultInfo(
         files = depset(default_outputs),
+        runfiles = ctx.runfiles(files = runtime_data_files),
     )
 
     # Gather transitive JS info for rules_js interoperability.

@@ -1,0 +1,14 @@
+load("//tsgo:defs.bzl", "ts_project")
+load(":assert_runfiles.bzl", "assert_runfiles")
+
+ts_project(
+    name = "json_lib",
+    srcs = ["main.ts"],
+    data = ["payload.json"],
+)
+
+assert_runfiles(
+    name = "json_data_propagation_test",
+    dep = ":json_lib",
+    filename = "payload.json",
+)

@@ -10,6 +10,7 @@ def npm_tarball_url(name, version):
     Returns:
         The full tarball URL.
     """
+
     # For scoped packages: @scope/pkg -> @scope/pkg/-/pkg-version.tgz
     # For unscoped: pkg -> pkg/-/pkg-version.tgz
     if name.startswith("@"):
