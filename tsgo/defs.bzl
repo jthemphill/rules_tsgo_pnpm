@@ -5,10 +5,12 @@ that uses tsgo (the Go-based TypeScript compiler) instead of tsc.
 """
 
 load("//tsgo/private:providers.bzl", _TsInfo = "TsInfo")
+load("//tsgo/private:ts_config.bzl", _ts_config = "ts_config")
 load("//tsgo/private:ts_types.bzl", _ts_types = "ts_types")
 load("//tsgo/private:tsgo_compile.bzl", "ts_project_impl")
 
 TsInfo = _TsInfo
+ts_config = _ts_config
 ts_types = _ts_types
 
 _ts_project_rule = rule(
@@ -20,6 +22,13 @@ _ts_project_rule = rule(
         ),
         "deps": attr.label_list(
             doc = "Targets that produce .d.ts declarations needed by this compilation.",
+        ),
+        "tsconfig": attr.label(
+            allow_single_file = [".json"],
+            doc = "A tsconfig.json file or ts_config target to extend. " +
+                  "When provided, the generated tsconfig will extend this file, " +
+                  "inheriting its compilerOptions. Bazel-specific options " +
+                  "(rootDirs, outDir, rootDir, files) are always overridden.",
         ),
         "declaration": attr.bool(
             default = True,
@@ -37,11 +46,19 @@ _ts_project_rule = rule(
             default = True,
             doc = "Whether to emit .js output files. Set to False for type-check only.",
         ),
+        "root_dir": attr.string(
+            doc = "Root directory for input files. Defaults to auto-computed common " +
+                  "prefix of all source files.",
+        ),
         "out_dir": attr.string(
             doc = "Override the output directory for compiled files.",
         ),
         "args": attr.string_list(
             doc = "Additional arguments passed to tsgo.",
+        ),
+        "data": attr.label_list(
+            allow_files = True,
+            doc = "Runtime data files needed by the compiled outputs.",
         ),
     },
     toolchains = ["//tsgo:toolchain_type"],
@@ -52,10 +69,12 @@ def ts_project(
         name,
         srcs = None,
         deps = [],
+        tsconfig = None,
         declaration = True,
         declaration_map = False,
         source_map = False,
         emit = True,
+        root_dir = None,
         out_dir = None,
         args = [],
         **kwargs):
@@ -69,10 +88,12 @@ def ts_project(
         name: Target name.
         srcs: TypeScript source files. Defaults to glob(["**/*.ts", "**/*.tsx"]).
         deps: Targets producing .d.ts declarations this target depends on.
+        tsconfig: A tsconfig.json file or ts_config target to extend.
         declaration: Emit .d.ts declaration files.
         declaration_map: Emit .d.ts.map files.
         source_map: Emit .js.map files.
         emit: Emit .js files. Set to False for type-check only.
+        root_dir: Root directory for input files.
         out_dir: Override the output directory.
         args: Additional tsgo arguments.
         **kwargs: Additional arguments to the underlying rule.
@@ -87,10 +108,12 @@ def ts_project(
         name = name,
         srcs = srcs,
         deps = deps,
+        tsconfig = tsconfig,
         declaration = declaration,
         declaration_map = declaration_map,
         source_map = source_map,
         emit = emit,
+        root_dir = root_dir,
         out_dir = out_dir,
         args = args,
         **kwargs
