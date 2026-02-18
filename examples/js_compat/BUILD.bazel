@@ -1,5 +1,6 @@
-load("//tsgo:defs.bzl", "ts_project")
+# buildifier: disable=native-sh-test
 load("//examples/json_runfiles:assert_runfiles.bzl", "assert_runfiles")
+load("//tsgo:defs.bzl", "ts_project")
 
 ts_project(
     name = "compat_fixture",
@@ -10,6 +11,7 @@ ts_project(
     tsconfig = "tsconfig.commonjs.json",
 )
 
+# buildifier: disable=native-sh-test
 sh_test(
     name = "compat_output_test",
     srcs = ["compat_output_test.sh"],
