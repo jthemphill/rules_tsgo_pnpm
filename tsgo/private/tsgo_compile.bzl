@@ -19,6 +19,7 @@ def _compute_outputs(ctx, srcs):
     for src in srcs:
         # Strip .ts/.tsx/.mts/.cts extension
         basename = src.basename
+        rel_path = basename
         is_decl_src = basename.endswith(".d.ts") or basename.endswith(".d.mts") or basename.endswith(".d.cts")
         if basename.endswith(".tsx"):
             stem = basename[:-4]
@@ -71,7 +72,7 @@ def _compute_outputs(ctx, srcs):
         src_dts_copies = src_dts_copies,
     )
 
-def _build_tsconfig_json(srcs, out_dir, root_dir, bin_dir, opts, type_roots = [], extends = None, package_paths = {}, package_type_paths = {}, local_alias_paths = {}, extra_files = []):
+def _build_tsconfig_json(srcs, out_dir, root_dir, bin_dir, opts, type_roots = [], extends = None, package_paths = {}, local_alias_paths = {}, extra_files = []):
     """Build a tsconfig.json content string.
 
     All paths are relative to the execroot (the CWD at execution time).
@@ -203,6 +204,9 @@ def tsgo_compile_action(ctx, toolchain_info, srcs, deps, outputs):
         srcs: List of source .ts files.
         deps: List of targets providing TsInfo or DefaultInfo.
         outputs: Struct from _compute_outputs.
+
+    Returns:
+        The same `outputs` struct passed in.
     """
     tsgo_bin = toolchain_info.tsgo
 
@@ -451,7 +455,6 @@ def tsgo_compile_action(ctx, toolchain_info, srcs, deps, outputs):
         type_roots,
         extends = extends_path,
         package_paths = package_paths,
-        package_type_paths = package_type_paths,
         local_alias_paths = local_alias_paths,
         extra_files = extra_tsconfig_files,
     )
@@ -461,6 +464,7 @@ def tsgo_compile_action(ctx, toolchain_info, srcs, deps, outputs):
         ctx.label.package.replace("/", "_"),
         ctx.label.name,
     )
+    js_outputs_args = " ".join(["\"{}\"".format(out.path) for out in outputs.js])
 
     # All inputs: sources + data files + transitive declarations + npm dep files + tsconfig files
     data_files = ctx.files.data if hasattr(ctx.files, "data") else []
@@ -507,6 +511,38 @@ cat > {tsconfig} << 'TSGO_TSCONFIG_EOF'
 {content}
 TSGO_TSCONFIG_EOF
 {tsgo} --project {tsconfig}
+for js_out in {js_outputs}; do
+  if [ ! -f "$PWD/$js_out" ]; then
+    continue
+  fi
+  perl -0777 -i -pe '
+my @mocks = ($_ =~ /^jest\\.mock\\(.*?\\);\\s*$/mg);
+s/^jest\\.mock\\(.*?\\);\\s*$\\n?//mg;
+if (@mocks) {{
+  my $block = join("", map {{ "$_\\n" }} @mocks);
+  if (!s/^("use strict";\\n)/$1$block/s) {{
+    $_ = $block . $_;
+  }}
+}}
+' "$PWD/$js_out"
+  tmp_js="$PWD/$js_out.tsgo_tmp"
+  perl -ne '
+my $line = $_;
+while ($line =~ /exports\\.([A-Za-z_][A-Za-z0-9_]*)\\s*=/g) {{
+  my $name = $1;
+  next if $name eq "__esModule";
+  $exports{{$name}} = 1;
+}}
+push @lines, $line;
+END {{
+  print @lines;
+  for my $name (sort keys %exports) {{
+    print "Object.defineProperty(exports, \\"$name\\", {{ enumerable: true, configurable: true, writable: true, value: exports.$name }});\\n";
+  }}
+}}
+' "$PWD/$js_out" > "$tmp_js"
+  mv "$tmp_js" "$PWD/$js_out"
+done
 """.format(
             pkg_dir = pkg_dir,
             qs_types_path = qs_types_path,
@@ -515,6 +551,7 @@ TSGO_TSCONFIG_EOF
             tsconfig = tsconfig_name,
             content = tsconfig_content,
             tsgo = tsgo_bin.path,
+            js_outputs = js_outputs_args,
         ),
         inputs = inputs,
         outputs = all_outputs,
@@ -524,18 +561,6 @@ TSGO_TSCONFIG_EOF
     )
 
     return outputs
-
-def _common_prefix(a, b):
-    """Return the longest common directory prefix of two paths."""
-    parts_a = a.split("/")
-    parts_b = b.split("/")
-    common = []
-    for i in range(min(len(parts_a), len(parts_b))):
-        if parts_a[i] == parts_b[i]:
-            common.append(parts_a[i])
-        else:
-            break
-    return "/".join(common)
 
 def _runtime_pkg_from_types_pkg(types_pkg):
     """Map an @types package name to its runtime package name."""
@@ -552,7 +577,14 @@ def _runtime_pkg_from_types_pkg(types_pkg):
     return raw
 
 def ts_project_impl(ctx):
-    """Implementation of the ts_project rule."""
+    """Implementation of the ts_project rule.
+
+    Args:
+        ctx: The rule context.
+
+    Returns:
+        List of providers: DefaultInfo, TsInfo, and JsInfo.
+    """
     toolchain = ctx.toolchains["//tsgo:toolchain_type"].tsgo_info
 
     srcs = ctx.files.srcs
@@ -601,33 +633,34 @@ def ts_project_impl(ctx):
     )
 
     data_files = ctx.files.data
-    runtime_data_files = []
+    runtime_data_files = data_files
+    js_runtime_data_files = []
     for data_file in data_files:
         # rules_js cannot copy source files from a different package via JsInfo
         # direct sources. Keep same-package source assets (like local JSON files),
         # and allow generated files (already in bazel-out).
         if data_file.is_source and data_file.owner.package != ctx.label.package:
             continue
-        runtime_data_files.append(data_file)
+        js_runtime_data_files.append(data_file)
 
-    default_outputs = outputs.js if outputs.js else outputs.dts
+    default_outputs = outputs.js if outputs.js else (outputs.dts if outputs.dts else src_declaration_files)
 
     # DefaultInfo: expose JS outputs (or .d.ts if no emit). Runtime data files
     # are carried in default runfiles so downstream js_binary/js_test targets
     # pick them up without treating them as cross-package source files.
     default_info = DefaultInfo(
         files = depset(default_outputs),
-        runfiles = ctx.runfiles(files = runtime_data_files),
+        runfiles = ctx.runfiles(files = default_outputs + runtime_data_files),
     )
 
     # Gather transitive JS info for rules_js interoperability.
     # This lets js_library, jest_test, and other rules_js targets
     # depend on tsgo ts_project targets.
-    output_sources_depset = depset(outputs.js)
+    output_sources_depset = depset(outputs.js + js_runtime_data_files)
     output_types_depset = depset(outputs.dts + src_declaration_files)
-    transitive_sources = js_lib_helpers.gather_transitive_sources(outputs.js, ctx.attr.deps)
+    transitive_sources = js_lib_helpers.gather_transitive_sources(outputs.js + js_runtime_data_files, ctx.attr.deps)
     transitive_types = js_lib_helpers.gather_transitive_types(outputs.dts + src_declaration_files, ctx.attr.deps)
-    npm_sources = js_lib_helpers.gather_npm_sources(srcs = ctx.attr.srcs, deps = ctx.attr.deps)
+    npm_sources = js_lib_helpers.gather_npm_sources(srcs = ctx.attr.srcs + ctx.attr.data, deps = ctx.attr.deps)
     npm_package_store_infos = js_lib_helpers.gather_npm_package_store_infos(
         targets = ctx.attr.srcs + ctx.attr.deps + ctx.attr.data,
     )

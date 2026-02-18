@@ -27,7 +27,7 @@ def _npm_types_impl(rctx):
 
     # Download each package and extract it
     pkg_targets = []
-    for pkg_key, pkg in packages.items():
+    for _, pkg in packages.items():
         url = npm_tarball_url(pkg.name, pkg.version)
 
         # Determine the final directory layout:

@@ -104,6 +104,7 @@ Building will generate a `tsconfig.json` in the build sandbox that looks like th
 ## Examples
 
 - [`examples/basic`](examples/basic) — single-package compilation
+- [`examples/js_compat`](examples/js_compat) — emitted JS compatibility checks (mock hoisting, CJS export shape, `.d.ts` propagation)
 - [`examples/monorepo`](examples/monorepo) — multi-package with `ts_types` → `ts_project` → `ts_project` dependency chain
 - [`examples/with_types`](examples/with_types) — npm `@types/node` via pnpm lockfile
 - [`examples/with_bun`](examples/with_bun) — npm `@types/node` via bun lockfile

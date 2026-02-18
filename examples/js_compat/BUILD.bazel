@@ -1,0 +1,29 @@
+load("//tsgo:defs.bzl", "ts_project")
+load("//examples/json_runfiles:assert_runfiles.bzl", "assert_runfiles")
+
+ts_project(
+    name = "compat_fixture",
+    srcs = [
+        "compat_entry.ts",
+        "dep.ts",
+    ],
+    tsconfig = "tsconfig.commonjs.json",
+)
+
+sh_test(
+    name = "compat_output_test",
+    srcs = ["compat_output_test.sh"],
+    data = [":compat_fixture"],
+)
+
+ts_project(
+    name = "dts_only_fixture",
+    srcs = ["ambient.d.ts"],
+    emit = False,
+)
+
+assert_runfiles(
+    name = "dts_copy_propagation_test",
+    dep = ":dts_only_fixture",
+    filename = "ambient.d.ts",
+)
